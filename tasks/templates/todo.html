@@ -3,36 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do List</title>
+    <title>Todo Page</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             background-color: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
             margin: 0;
+            padding: 0;
         }
-        .todo-container {
-            background: #ffffff;
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
             padding: 20px;
+            background: #ffffff;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 400px;
         }
-        .todo-container h1 {
-            margin-bottom: 20px;
-            font-size: 24px;
+        h1 {
             text-align: center;
+            margin-bottom: 20px;
+        }
+        .user-info {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .todo-form {
+            margin-bottom: 20px;
+        }
+        .todo-form input, .todo-form textarea, .todo-form button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .todo-form button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .todo-form button:hover {
+            background-color: #0056b3;
+        }
+        .todo-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .todo-list li {
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .todo-actions button {
+            margin-left: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .edit-btn {
+            background-color: #ffc107;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+        }
+        .edit-btn:hover {
+            background-color: #e0a800;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
         }
     </style>
 </head>
 <body>
-    <div class="todo-container">
-        <h1>Your To-Do List</h1>
-        <!-- Add your to-do list content here -->
-        <p>Welcome to your To-Do page!</p>
+    <div class="container">
+        <h1>Welcome to Your Todo List</h1>
+
+        <div class="user-info">
+            <p>Logged in as: <strong>{{ user.username }}</strong></p>
+        </div>
+
+        <!-- Add Task Form -->
+        <form method="POST" action="{% url 'add_task' %}" class="todo-form">
+            {% csrf_token %}
+            <h2>Add a New Task</h2>
+            <input type="text" name="title" placeholder="Task Title" required>
+            <textarea name="description" placeholder="Task Description (optional)"></textarea>
+            <button type="submit">Add Task</button>
+        </form>
+
+        <!-- Task List -->
+        <ul class="todo-list">
+            {% for todo in todos %}
+                <li>
+                    <div>
+                        <strong>{{ todo.title }}</strong> - 
+                        {% if todo.completed %}Completed{% else %}Pending{% endif %}
+                    </div>
+                    <div class="todo-actions">
+                        <!-- Edit Task Button -->
+                        <form method="POST" action="{% url 'update_task' todo.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="title" value="{{ todo.title }}">
+                            <input type="hidden" name="description" value="{{ todo.description }}">
+                            <button type="submit" class="edit-btn">Edit</button>
+                        </form>
+                        <!-- Delete Task Button -->
+                        <form method="POST" action="{% url 'delete_task' todo.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="delete-btn">Delete</button>
+                        </form>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
     </div>
 </body>
 </html>

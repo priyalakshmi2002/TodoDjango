@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from .models import Todo
 
 class SignupSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
@@ -23,18 +24,14 @@ class SignupSerializer(serializers.ModelSerializer):
     def validate(self, data):
         password1 = data.get('password1')
         password2 = data.get('password2')
-
-        # Check if passwords match
         if password1 != password2:
             raise serializers.ValidationError({'password2': "Passwords do not match"})
-
-        # Check password strength (example: minimum length)
         if len(password1) < 6:
             raise serializers.ValidationError({'password1': "Password must be at least 6 characters long"})
         return data
 
     def create(self, validated_data):
-        validated_data.pop('password2')  # Remove password2 since it's not a field in the User model
+        validated_data.pop('password2') 
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
@@ -43,15 +40,21 @@ class SignupSerializer(serializers.ModelSerializer):
         return user
     
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=True)
-    password = serializers.CharField(write_only=True, required=True)
+    username = serializers.CharField(
+        required=True,
+        error_messages={'blank': 'Username is required.'}
+    )
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        error_messages={'blank': 'Password is required.'}
+    )
 
     def validate(self, data):
-        username = data.get('username')
-        password = data.get('password')
-
-        # If username or password is missing
-        if not username or not password:
-            raise serializers.ValidationError("Both fields are required.")
         return data
+
+class TodoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Todo
+        fields = ['id', 'user', 'title', 'description','assigned_to', 'completed']
 

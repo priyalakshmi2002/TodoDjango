@@ -69,6 +69,12 @@
         .error {
             color: red;
             font-size: 12px;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        .error.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
         .form-group input.error-field {
             border-color: red;
@@ -82,28 +88,28 @@
             {% csrf_token %}
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" value="{{ form_data.username|default:'' }}" class="{% if errors.username %}error-field{% endif %}" required>
+                <input type="text" id="username" name="username"  class="{% if errors.username %}error-field{% endif %}">
                 {% if errors.username %}
                     <p class="error">{{ errors.username.0 }}</p>
                 {% endif %}
             </div>
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" value="{{ form_data.email|default:'' }}"  class="{% if errors.email %}error-field{% endif %}"  required>
+                <input type="email" id="email" name="email"   class="{% if errors.email %}error-field{% endif %}">
                 {% if errors.email %}
                     <p class="error">{{ errors.email.0 }}</p>
                 {% endif %}
             </div>
             <div class="form-group">
                 <label for="password1">Password</label>
-                <input type="password" id="password1" name="password1" required>
+                <input type="password" id="password1" name="password1">
                 {% if errors.password1 %}
                     <p class="error">{{ errors.password1.0 }}</p>
                 {% endif %}
             </div>
             <div class="form-group">
                 <label for="password2">Confirm Password</label>
-                <input type="password" id="password2" name="password2" required>
+                <input type="password" id="password2" name="password2">
                 {% if errors.password2 %}
                     <p class="error">{{ errors.password2.0 }}</p>
                 {% endif %}
@@ -111,6 +117,14 @@
             <button type="submit" class="btn">Sign in</button>
         </form>
         <a href="{% url 'login' %}" class="link">Already have an account? Login</a>
-    </div>    
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const errorMessages = document.querySelectorAll(".error");
+            setTimeout(() => {
+                errorMessages.forEach(error => error.classList.add("hidden"));
+            }, 3000);
+        });
+    </script>    
 </body>
 </html>

@@ -1,10 +1,8 @@
 from django.test import TestCase
 from django.urls import reverse
 from .serializers import SignupSerializer
-from django.urls import reverse
 from django.contrib.auth.models import User
-
-
+from tasks.models import Todo
 
 class SignupPageTests(TestCase):
     def test_signup_page_renders_correctly(self):
@@ -78,12 +76,26 @@ class SignupPageTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn('email', serializer.errors)
         self.assertEqual(serializer.errors['email'][0], 'This field is required.')
+          
+    def test_signup_valid_emial_fields(self):
+        """
+        Testing the validation of the signup email with invalid email input
+        """
+        data = {
+            'username': 'testuser',
+            'email': 'test2137',
+            'password1': 'password123',
+            'password2': 'password123',
+        }
+        serializer = SignupSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('email', serializer.errors)
+        self.assertEqual(serializer.errors['email'][0], 'Enter a valid email address.')
 
     def test_signup_existing_username(self):
         """
         Testing the validation of the signup fields for unique username input 
         """
-        from django.contrib.auth.models import User
         User.objects.create_user(username='testuser', email='test@example.com', password='password123')
 
         data = {
@@ -130,7 +142,7 @@ class SignupPageTests(TestCase):
         self.assertIn('password1', serializer.errors)
         self.assertEqual(serializer.errors['password1'][0], "Password must be at least 6 characters long")
 
-class LoginPageTests(TestCase):        
+class LoginTests(TestCase):
     def test_login_page_renders_correctly(self):
         """
         Ensure the login page renders correctly.
@@ -154,90 +166,114 @@ class LoginPageTests(TestCase):
         self.assertContains(response, '<label for="password">Password</label>', html=True)
         self.assertContains(response,' <button type="submit" class="btn">Login</button>',html=True)
         self.assertContains(response, 'href="/auth/signup/"') 
-        
-
-class LoginTests(TestCase):
-
+    
     def setUp(self):
         """Create a test user for login testing"""
         self.user = User.objects.create_user(username="testuser", password="testpassword")
 
-    def test_successful_login_redirects_to_todo(self):
+    def test_successful_login_redirects_to_todo_no_errors(self):
         """Test that a successful login redirects to the todo page"""
         response = self.client.post(reverse('login'), {
             'username': 'testuser',
             'password': 'testpassword',
-        })
-        # Check if the user is redirected to the 'todo' page after successful login
+        },
+        follow=True)
         self.assertRedirects(response, reverse('todo'))
-        # Check if the user is authenticated (logged in)
         self.assertTrue(self.client.login(username='testuser', password='testpassword'))
-
-    def test_invalid_username_or_password(self):
-        """Test that invalid credentials return an error message"""
-        response = self.client.post(reverse('login'), {
-            'username': 'wronguser',
-            'password': 'wrongpassword',
-        })
-        # Check if the user is redirected back to the login page
-        self.assertRedirects(response, reverse('login'))
-        # Check if the error message is shown
-        self.assertContains(response, 'Invalid credentials, please try again.')
-
-    def test_missing_username(self):
-        """Test that login fails when the username is missing"""
+        self.assertNotContains(response, "Username is required.")
+        self.assertNotContains(response, "Password is required.")
+        self.assertNotContains(response, "Invalid username or password.")
+            
+    def test_missing_username_error(self):
+        """
+        Test that an error message is displayed when the username is missing.
+        """
         response = self.client.post(reverse('login'), {
             'username': '',
             'password': 'testpassword',
         })
-        # Check if the error message for the missing username is shown
-        self.assertContains(response, 'Both fields are required.')
+        self.assertContains(response, "Username is required.")
+        self.assertEqual(response.status_code, 200)
 
-    def test_missing_password(self):
-        """Test that login fails when the password is missing"""
+    def test_missing_password_error(self):
+        """
+        Test that an error message is displayed when the password is missing.
+        """
         response = self.client.post(reverse('login'), {
             'username': 'testuser',
             'password': '',
         })
-        # Check if the error message for the missing password is shown
-        self.assertContains(response, 'Both fields are required.')
+        self.assertContains(response, "Password is required.")
+        self.assertEqual(response.status_code, 200)
 
-    def test_missing_both_username_and_password(self):
-        """Test that login fails when both username and password are missing"""
+    def test_invalid_credentials_error(self):
+        """
+        Test that an error message is displayed for invalid credentials.
+        """
         response = self.client.post(reverse('login'), {
-            'username': '',
-            'password': '',
+            'username': 'jqskdj',
+            'password': 'wrongpassword'
         })
-        # Check if the error message for missing fields is shown
-        self.assertContains(response, 'Both fields are required.')
+        self.assertContains(response, "Invalid username or password.")
+        self.assertEqual(response.status_code, 200)
 
-    def test_invalid_username(self):
-        """Test that login fails when the username is incorrect"""
-        response = self.client.post(reverse('login'), {
-            'username': 'nonexistentuser',
-            'password': 'testpassword',
+class TodoTestCase(TestCase):
+    def setUp(self):
+        # Create a test user
+        self.user = User.objects.create_user(username='testuser', password='password123')
+        self.client.login(username='testuser', password='password123')
+
+        # Create initial tasks
+        self.task1 = Todo.objects.create(title="Task 1", completed=False, user=self.user)
+        self.task2 = Todo.objects.create(title="Task 2", completed=True, user=self.user)
+
+    def test_todo_page_loads(self):
+        """Testing the structure of the todo page"""
+        response = self.client.get(reverse('todo'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Welcome to Your Todo List")
+        self.assertContains(response, "<h1>Welcome to Your Todo List</h1>", html=True)
+
+        # Check if the form for adding tasks exists
+        self.assertContains(response, '<input type="text" name="title" placeholder="Task Title" required>', html=False)
+        self.assertContains(response, '<textarea name="description" placeholder="Task Description (optional)"></textarea>', html=False)
+        self.assertContains(response, '<button type="submit">Add Task</button>', html=False)
+
+    def test_add_task(self):
+        """ Test to add new task"""
+        response = self.client.post(reverse('add_task'), {
+            'title': 'New Task',
+            'description': 'Description of the new task'
         })
-        # Check if the error message for invalid credentials is shown
-        self.assertContains(response, 'Invalid credentials, please try again.')
+        self.assertEqual(response.status_code, 302)  # Should redirect after creation
+        self.assertTrue(Todo.objects.filter(title='New Task').exists())
 
-    def test_invalid_password(self):
-        """Test that login fails when the password is incorrect"""
-        response = self.client.post(reverse('login'), {
-            'username': 'testuser',
-            'password': 'wrongpassword',
+    def test_update_task(self):
+        """Test to update a new task"""
+        response = self.client.post(reverse('update_task', args=[self.task1.id]), {
+            'title': 'Updated Task 1',
+            'description': 'Updated description',
         })
-        # Check if the error message for invalid credentials is shown
-        self.assertContains(response, 'Invalid credentials, please try again.')
+        self.assertEqual(response.status_code, 302)  # Should redirect after update
+        updated_task = Todo.objects.get(id=self.task1.id)
+        self.assertEqual(updated_task.title, 'Updated Task 1')
 
-    def test_error_message_for_login_validation(self):
-        """Test that error messages are shown for invalid login"""
-        # Simulate missing password (without providing a password)
-        response = self.client.post(reverse('login'), {
-            'username': 'testuser',
-            'password': '',
-        })
-        # Check if the error message about missing fields is shown
-        self.assertContains(response, 'Both fields are required.')
+    def test_toggle_task_completion(self):
+        """Test to toggle a task to completed"""
+        response = self.client.post(reverse('update_task', args=[self.task1.id]))
+        self.assertEqual(response.status_code, 302)
+        self.task1.refresh_from_db()
+        self.assertTrue(self.task1.completed)  # Completion status should toggle
 
+    def test_delete_task(self):
+        """Test to delete a task"""
+        response = self.client.post(reverse('delete_task', args=[self.task2.id]))
+        self.assertEqual(response.status_code, 302)  # Should redirect after deletion
+        self.assertFalse(Todo.objects.filter(id=self.task2.id).exists())
 
+    def test_list_tasks(self):
+        """Test to list all the tasks"""
+        response = self.client.get(reverse('todo'))
+        self.assertContains(response, "Task 1")
+        self.assertContains(response, "Task 2")
 
