@@ -77,7 +77,7 @@ class SignupPageTests(TestCase):
         self.assertIn('email', serializer.errors)
         self.assertEqual(serializer.errors['email'][0], 'This field is required.')
           
-    def test_signup_valid_emial_fields(self):
+    def test_signup_valid_email_fields(self):
         """
         Testing the validation of the signup email with invalid email input
         """
@@ -217,63 +217,120 @@ class LoginTests(TestCase):
         self.assertContains(response, "Invalid username or password.")
         self.assertEqual(response.status_code, 200)
 
-class TodoTestCase(TestCase):
+class TodoAppTests(TestCase):
     def setUp(self):
         # Create a test user
-        self.user = User.objects.create_user(username='testuser', password='password123')
-        self.client.login(username='testuser', password='password123')
+        self.user = User.objects.create_user(username="testuser", password="password123")
+        self.other_user = User.objects.create_user(username="otheruser", password="password123")
+        
+        # Create tasks for the test user
+        self.task1 = Todo.objects.create(title="Task 1", description="Description 1", user=self.user,completed=False)
+        self.task2 = Todo.objects.create(title="Task 2", description="Description 2", user=self.user, completed=True)
+        
+        # Create a task for the other user
+        self.other_task = Todo.objects.create(title="Other Task", description="Other Description", user=self.other_user)
 
-        # Create initial tasks
-        self.task1 = Todo.objects.create(title="Task 1", completed=False, user=self.user)
-        self.task2 = Todo.objects.create(title="Task 2", completed=True, user=self.user)
-
-    def test_todo_page_loads(self):
-        """Testing the structure of the todo page"""
+    def test_todo_html_structure(self):
+        """Test for successful login and the html structure of the todo page"""
+        self.client.login(username="testuser", password="password123")
         response = self.client.get(reverse('todo'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Welcome to Your Todo List")
-        self.assertContains(response, "<h1>Welcome to Your Todo List</h1>", html=True)
-
-        # Check if the form for adding tasks exists
-        self.assertContains(response, '<input type="text" name="title" placeholder="Task Title" required>', html=False)
-        self.assertContains(response, '<textarea name="description" placeholder="Task Description (optional)"></textarea>', html=False)
-        self.assertContains(response, '<button type="submit">Add Task</button>', html=False)
-
+        self.assertContains(response, 'Welcome to Your Todo List')
+        self.assertContains(response, "Logged in as: <strong>testuser</strong>", html=True)
+        self.assertContains(response, '<form', status_code=200)
+        self.assertContains(response, '<input', status_code=200)
+        self.assertContains(response, 'type="text"', status_code=200)
+        self.assertContains(response, '<textarea name="description"',status_code=200)
+        self.assertContains(response, '<button type="submit">Add Task</button>')
+        self.assertContains(response, 'Task 1')
+        self.assertContains(response, 'Task 2')
+        self.assertContains(response, 'Done')
+        self.assertContains(response, 'Edit')
+        self.assertContains(response, 'Delete')
+        self.assertContains(response, f'href="{reverse("todo")}?edit_task_id={self.task1.id}"')
+        self.assertContains(response, f'action="{reverse("delete_task", args=[self.task1.id])}"')
+        self.assertContains(response, f'action="{reverse("toggle_task", args=[self.task1.id])}"')
+        
     def test_add_task(self):
-        """ Test to add new task"""
-        response = self.client.post(reverse('add_task'), {
-            'title': 'New Task',
-            'description': 'Description of the new task'
-        })
-        self.assertEqual(response.status_code, 302)  # Should redirect after creation
-        self.assertTrue(Todo.objects.filter(title='New Task').exists())
-
+        """Test for adding task in the todo form"""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(reverse('add_task'), {'title': 'New Task', 'description': 'New Description'})
+        self.assertEqual(response.status_code, 302)  # Should redirect back to the todo page
+        self.assertTrue(Todo.objects.filter(title="New Task", user=self.user).exists())
+   
     def test_update_task(self):
-        """Test to update a new task"""
-        response = self.client.post(reverse('update_task', args=[self.task1.id]), {
+        """Test for updating the existing task in the todo form"""
+        self.client.login(username="testuser", password="password123")
+        update_url = reverse('todo') + f'?edit_task_id={self.task1.id}'
+        # Perform the GET request to pre-fill the form
+        response = self.client.get(update_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Edit Task')  # Ensure we see the Edit form
+        update_data = {
             'title': 'Updated Task 1',
-            'description': 'Updated description',
-        })
-        self.assertEqual(response.status_code, 302)  # Should redirect after update
-        updated_task = Todo.objects.get(id=self.task1.id)
-        self.assertEqual(updated_task.title, 'Updated Task 1')
-
-    def test_toggle_task_completion(self):
-        """Test to toggle a task to completed"""
-        response = self.client.post(reverse('update_task', args=[self.task1.id]))
-        self.assertEqual(response.status_code, 302)
+            'description': 'Updated Description 1',
+            'task_id': self.task1.id,
+        }
+        response = self.client.post(reverse('add_task'), update_data)
+        self.assertEqual(response.status_code, 302)  # Should redirect after successful update
         self.task1.refresh_from_db()
-        self.assertTrue(self.task1.completed)  # Completion status should toggle
+        self.assertEqual(self.task1.title, 'Updated Task 1')
+        self.assertEqual(self.task1.description, 'Updated Description 1')
+    
+    def test_toggle_completed(self):
+        """Testing the toggle and completed status of the task"""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(reverse('toggle_task', args=[self.task1.id]), {
+            'toggle_completed': '1',
+        })
+        self.assertEqual(response.status_code, 302)
+        toggle_task = Todo.objects.get(id=self.task1.id)
+        self.assertTrue(toggle_task.completed)  # Task should now be marked as completed
 
     def test_delete_task(self):
-        """Test to delete a task"""
-        response = self.client.post(reverse('delete_task', args=[self.task2.id]))
-        self.assertEqual(response.status_code, 302)  # Should redirect after deletion
-        self.assertFalse(Todo.objects.filter(id=self.task2.id).exists())
+        """Testing the deletion of a task from the todo list"""
+        self.client.login(username="testuser", password="password123")
+        response = self.client.post(reverse('delete_task', args=[self.task1.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Todo.objects.filter(id=self.task1.id).exists())  # Task should be deleted
 
-    def test_list_tasks(self):
-        """Test to list all the tasks"""
+    def test_tasks_are_user_specific(self):
+        """Testing the lists of tasks displayed of that particular user logged in"""
+        self.client.login(username="testuser", password="password123")
         response = self.client.get(reverse('todo'))
-        self.assertContains(response, "Task 1")
-        self.assertContains(response, "Task 2")
+        self.assertEqual(response.status_code, 200)
+        tasks = response.context['todos']
+        self.assertIn(self.task1, tasks)
+        self.assertIn(self.task2, tasks)
+        self.assertNotIn(self.other_task, tasks)  # Tasks from other users should not appear
+        
+    def test_add_task_missing_title(self):
+        self.client.login(username='testuser', password='testpassword')
+        self.add_task_url = reverse('add_task')  # Replace with your actual URL name
+        # Post data without a title
+        response = self.client.post(self.add_task_url, {
+            'description': 'Task without a title'
+        })
+
+        # Check that the task was not created
+        self.assertEqual(Todo.objects.filter(user=self.user).count(), 0)
+
+        # Optional: Check for validation message (depends on how you handle errors in your template)
+        self.assertContains(response, "This field is required", status_code=200)
+
+    def test_add_task_title_too_long(self):
+        self.client.login(username='testuser', password='testpassword')
+        self.add_task_url = reverse('add_task')  # Replace with your actual URL name
+        # Post data with a title exceeding 255 characters
+        long_title = 'a' * 256
+        response = self.client.post(self.add_task_url, {
+            'title': long_title,
+            'description': 'Description for a task with a long title'
+        })
+
+        # Check that the task was not created
+        self.assertEqual(Todo.objects.filter(user=self.user).count(), 0)
+
+        # Optional: Check for error message (if validation errors are shown in the template)
+        self.assertContains(response, "Ensure this value has at most 255 characters", status_code=200)
 

@@ -86,8 +86,7 @@
 <body>
     <div class="login-container">
         <h1>Login</h1>
-
-        <!-- Display non-field-specific errors -->
+        
         {% if errors.non_field_errors %}
             <p class="error">{{ errors.non_field_errors.0 }}</p>
         {% endif %}
@@ -96,25 +95,16 @@
             {% csrf_token %}
             <div class="form-group">
                 <label for="username">Username</label>
-                <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    value="{{ form_data.username|default:'' }}"
-                    class="{% if errors.username %}error-field{% endif %}"
-                >
+                <input type="text" id="username" name="username" value="{{ form_data.username|default:'' }}"
+                class="{% if errors.username %}error-field{% endif %}">
                 {% if errors.username %}
                     <p class="error">{{ errors.username.0 }}</p>
                 {% endif %}
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    class="{% if errors.password %}error-field{% endif %}"
-                >
+                <input type="password" id="password" name="password"
+                class="{% if errors.password %}error-field{% endif %}">
                 {% if errors.password %}
                     <p class="error">{{ errors.password.0 }}</p>
                 {% endif %}

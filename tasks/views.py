@@ -1,12 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
-from .serializers import SignupSerializer,LoginSerializer,TodoSerializer
+from .serializers import SignupSerializer,LoginSerializer
 from django.contrib.auth.decorators import login_required
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from .models import Todo
 
 def signup(request):
@@ -62,30 +58,43 @@ def login_view(request):
         'errors': {}
     })
     
-
 @login_required
 def todo_page(request):
+    edit_task_id = request.GET.get('edit_task_id')
+    edit_task = None
+    if edit_task_id:
+        edit_task = get_object_or_404(Todo, id=edit_task_id, user=request.user)
+
     todos = Todo.objects.filter(user=request.user)
     return render(request, 'todo.html', {
-        'user': request.user,
         'todos': todos,
+        'edit_task': edit_task,  # Pass the task for pre-filling the form
     })
-    
+
 @login_required
 def add_task(request):
     if request.method == 'POST':
-        title = request.POST.get('title')
-        description = request.POST.get('description', '')
-        Todo.objects.create(title=title, description=description, user=request.user)
-    return redirect('todo')
+        task_id = request.POST.get('task_id')  # Check if task_id is provided
+        if task_id:  # Update existing task
+            task = get_object_or_404(Todo, id=task_id, user=request.user)
+            task.title = request.POST.get('title', task.title)
+            task.description = request.POST.get('description', task.description)
+            task.save()
+        else:  # Add new task
+            title = request.POST.get('title')
+            description = request.POST.get('description', '')
+            Todo.objects.create(title=title, description=description, user=request.user)
+        return redirect('todo')
+
+    # Render the task list with an empty form for adding new tasks
+    todos = Todo.objects.filter(user=request.user)
+    return render(request, 'todo.html', {'todos': todos})
 
 @login_required
-def update_task(request, task_id):
+def toggle_task(request, task_id):
     task = get_object_or_404(Todo, id=task_id, user=request.user)
     if request.method == 'POST':
-        task.title = request.POST.get('title', task.title)
-        task.description = request.POST.get('description', task.description)
-        task.completed = not task.completed  # Toggle completion status
+        task.completed = not task.completed  # Toggle completion
         task.save()
     return redirect('todo')
 
@@ -96,51 +105,3 @@ def delete_task(request, task_id):
         task.delete()
     return redirect('todo')
 
-
-# class TodoListView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         todos = Todo.objects.filter(user=request.user)
-#         serializer = TodoSerializer(todos, many=True)
-#         return Response(serializer.data)
-
-#     def post(self, request):
-#         serializer = TodoSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(user=request.user)
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# class TodoDetailView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get_object(self, pk, user):
-#         try:
-#             return Todo.objects.get(pk=pk, user=user)
-#         except Todo.DoesNotExist:
-#             return None
-
-#     def get(self, request, pk):
-#         todo = self.get_object(pk, request.user)
-#         if not todo:
-#             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-#         serializer = TodoSerializer(todo)
-#         return Response(serializer.data)
-
-#     def put(self, request, pk):
-#         todo = self.get_object(pk, request.user)
-#         if not todo:
-#             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-#         serializer = TodoSerializer(todo, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def delete(self, request, pk):
-#         todo = self.get_object(pk, request.user)
-#         if not todo:
-#             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-#         todo.delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)

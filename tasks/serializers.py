@@ -56,5 +56,5 @@ class LoginSerializer(serializers.Serializer):
 class TodoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Todo
-        fields = ['id', 'user', 'title', 'description','assigned_to', 'completed']
+    
 

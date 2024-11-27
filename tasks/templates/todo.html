@@ -30,13 +30,32 @@
         .todo-form {
             margin-bottom: 20px;
         }
-        .todo-form input, .todo-form textarea, .todo-form button {
+
+        .todo-form input {
             display: block;
-            width: 100%;
+            width: 97%;
             margin-bottom: 10px;
             padding: 10px;
             font-size: 14px;
         }
+
+        .todo-form textarea{
+            display: block;
+            width: 97.2%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .todo-form button {
+            display: block;
+            width: 28%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 14px;
+            margin-left: 37%;
+        }
+
         .todo-form button {
             background-color: #007BFF;
             color: white;
@@ -82,6 +101,31 @@
         .delete-btn:hover {
             background-color: #c82333;
         }
+        .done-btn{
+            background-color: #2b935a;
+        }
+        .done-btn:hover{
+            background-color: #145b35;
+        }
+
+        .button {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+            color: white;
+            background-color: #ffc107;
+            border: none;
+            border-radius: 4px;
+            text-align: center;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .button:hover {
+            background-color: #e0a800;
+        }
+        
     </style>
 </head>
 <body>
@@ -92,31 +136,36 @@
             <p>Logged in as: <strong>{{ user.username }}</strong></p>
         </div>
 
-        <!-- Add Task Form -->
         <form method="POST" action="{% url 'add_task' %}" class="todo-form">
             {% csrf_token %}
-            <h2>Add a New Task</h2>
-            <input type="text" name="title" placeholder="Task Title" required>
-            <textarea name="description" placeholder="Task Description (optional)"></textarea>
-            <button type="submit">Add Task</button>
+            <h2>{% if edit_task %}Edit Task{% else %}Add a New Task{% endif %}</h2>
+            <input type="hidden" name="task_id" value="{{ edit_task.id|default:'' }}">
+            <input type="text" name="title" placeholder="Task Title" value="{{ edit_task.title|default:'' }}">
+            <textarea name="description" placeholder="Task Description (optional)">{{ edit_task.description|default:'' }}</textarea>
+            <button type="submit">{% if edit_task %}Update Task{% else %}Add Task{% endif %}</button>
         </form>
-
-        <!-- Task List -->
+        
         <ul class="todo-list">
             {% for todo in todos %}
                 <li>
                     <div>
                         <strong>{{ todo.title }}</strong> - 
-                        {% if todo.completed %}Completed{% else %}Pending{% endif %}
+                        {% if todo.completed %}
+                            <span style="color: green;">Completed</span>
+                        {% else %}
+                            <span style="color: red;">Pending</span>
+                        {% endif %}
                     </div>
                     <div class="todo-actions">
-                        <!-- Edit Task Button -->
-                        <form method="POST" action="{% url 'update_task' todo.id %}" style="display:inline;">
+                        <!-- Done Button -->
+                        <form method="POST" action="{% url 'toggle_task' todo.id %}" style="display:inline;">
                             {% csrf_token %}
-                            <input type="hidden" name="title" value="{{ todo.title }}">
-                            <input type="hidden" name="description" value="{{ todo.description }}">
-                            <button type="submit" class="edit-btn">Edit</button>
+                            <button type="submit" class="done-btn">Done</button>
                         </form>
+        
+                        <!-- Edit Button -->
+                        <a href="{% url 'todo' %}?edit_task_id={{ todo.id }}" class="button edit-btn">Edit</a>
+        
                         <!-- Delete Task Button -->
                         <form method="POST" action="{% url 'delete_task' todo.id %}" style="display:inline;">
                             {% csrf_token %}
@@ -126,6 +175,7 @@
                 </li>
             {% endfor %}
         </ul>
+        
     </div>
 </body>
 </html>
